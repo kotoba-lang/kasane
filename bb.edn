@@ -9,7 +9,8 @@
               [kasane.cos-test]
               [kasane.png-test]
               [kasane.raster-test]
-              [kasane.zip-test])
+              [kasane.zip-test]
+              [kasane.lzw-test])
    :task (let [{:keys [fail error]}
                (t/run-tests 'kasane.codec-test
                             'kasane.decode-test
@@ -17,5 +18,6 @@
                             'kasane.cos-test
                             'kasane.png-test
                             'kasane.raster-test
-                            'kasane.zip-test)]
+                            'kasane.zip-test
+                            'kasane.lzw-test)]
            (System/exit (if (pos? (+ fail error)) 1 0)))}}}

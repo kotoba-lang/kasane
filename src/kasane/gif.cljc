@@ -2,7 +2,8 @@
   "GIF decode: header/LSD via the grammar engine, then a byte scan for image
    separators (0x2C) to count frames. R0 = dims + frame count + version;
    LZW pixel decode is deferred (ADR-2606272100)."
-  (:require [kasane.decode :as d]))
+  (:require [kasane.decode :as d]
+            [kasane.codec :as codec]))
 
 (defn parse
   "Parse GIF `data` with `grammar` (gif.edn). Returns
@@ -17,3 +18,30 @@
      :height               (:height hdr)
      :global-color-table?  (bit-test (:flags hdr) 7)
      :frames               (count (filter #(= % 0x2C) bv))}))   ; 0x2C = Image Separator
+
+(defn- skip-subblocks [bv i]
+  (loop [j i] (let [len (nth bv j)] (if (zero? len) (inc j) (recur (+ j 1 len))))))
+
+(defn first-frame-indices
+  "Decode the first frame's palette indices (LZW, LSB, non-early). Returns a
+   vector of color-table indices (row-major). EXPERIMENTAL: decodes to the
+   correct pixel count but exact values still disagree with the reference at
+   row/dict boundaries (the shared LZW core is verified via TIFF). R0: first
+   frame only, no interlace de-ordering. See ADR-2606272100."
+  [data]
+  (let [bv       (vec data)
+        flags    (nth bv 10)
+        gct-size (if (bit-test flags 7) (* 3 (bit-shift-left 1 (inc (bit-and flags 7)))) 0)
+        imgsep   (loop [i (+ 13 gct-size)]
+                   (let [b (nth bv i)]
+                     (cond (= b 0x2C) i
+                           (= b 0x21) (recur (skip-subblocks bv (+ i 2)))   ; extension block
+                           :else (throw (ex-info "gif: no image descriptor" {:byte b})))))
+        dflags   (nth bv (+ imgsep 9))
+        lct-size (if (bit-test dflags 7) (* 3 (bit-shift-left 1 (inc (bit-and dflags 7)))) 0)
+        mcs-pos  (+ imgsep 10 lct-size)
+        mcs      (nth bv mcs-pos)
+        lzwdata  (loop [j (inc mcs-pos) acc []]
+                   (let [len (nth bv j)]
+                     (if (zero? len) acc (recur (+ j 1 len) (into acc (subvec bv (inc j) (+ j 1 len)))))))]
+    (codec/lzw lzwdata {:order :lsb :min-code-size mcs :early-change false})))

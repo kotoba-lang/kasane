@@ -5,7 +5,8 @@
    (byte order auto-detected). R0 extracts IFD0 metadata (dims/bps/compression/
    photometric); pixel strips are left as blob pointers. PSD/DNG/camera-RAW
    share this container. See ADR-2606272100."
-  (:require [kasane.bytes :as b]))
+  (:require [kasane.bytes :as b]
+            [kasane.codec :as codec]))
 
 (def ^:private tag-names
   {256 :image-width 257 :image-height 258 :bits-per-sample 259 :compression
@@ -42,3 +43,39 @@
      :compression     (compressions (:compression byname) (:compression byname))
      :photometric     (:photometric byname)
      :entries         entries}))
+
+(defn pixels
+  "Decode TIFF image samples = concatenated strips, decompressed per the
+   Compression tag. R0: predictor=1 (none) only; single sample format.
+   Returns a vector of unsigned sample bytes."
+  [data]
+  (let [bv   (vec data)
+        big? (= [0x4D 0x4D] (subvec bv 0 2))
+        ifd  (b/uint! (b/cursor (subvec bv 4 8)) 4 big?)
+        n    (b/uint! (b/cursor (subvec bv ifd (+ ifd 2))) 2 big?)
+        u16  (fn [o] (b/uint! (b/cursor (subvec bv o (+ o 2))) 2 big?))
+        u32  (fn [o] (b/uint! (b/cursor (subvec bv o (+ o 4))) 4 big?))
+        ents (into {} (map (fn [i]
+                             (let [eo (+ ifd 2 (* i 12))]
+                               [(u16 eo) {:type (u16 (+ eo 2)) :count (u32 (+ eo 4)) :voff (+ eo 8)}]))
+                           (range n)))
+        rd-array (fn [tag]
+                   (when-let [e (get ents tag)]
+                     (let [sz (if (= (:type e) 3) 2 4)
+                           rd (if (= sz 2) u16 u32)]
+                       (if (= (:count e) 1)
+                         [(rd (:voff e))]
+                         (let [off (u32 (:voff e))]
+                           (mapv #(rd (+ off (* % sz))) (range (:count e))))))))
+        offs (rd-array 273)
+        lens (rd-array 279)
+        comp (u16 (:voff (get ents 259)))]
+    (vec (mapcat (fn [o l]
+                   (let [strip (subvec bv o (+ o l))]
+                     (case comp
+                       1     (vec strip)                                         ; none
+                       5     (codec/lzw strip {:order :msb :min-code-size 8 :early-change true})
+                       32773 (codec/packbits strip)
+                       (8 32946) (codec/decode :flate strip)
+                       (vec strip))))
+                 offs lens))))
