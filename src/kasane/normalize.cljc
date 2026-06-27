@@ -1,7 +1,8 @@
 (ns kasane.normalize
   "Map a raw decoded format tree (kasane.decode output) onto the common
    :kasane/doc model — the cross-format layered tree from ADR-2606272100.
-   Pure cljc.")
+   Pure cljc."
+  (:require [clojure.string :as str]))
 
 (def ^:private psd-blend->kw
   {"norm" :normal "mul " :multiply "scrn" :screen "over" :overlay
@@ -122,6 +123,31 @@
                                          :ai.artboard/index (:pdf.page/index n))
                                   (dissoc :pdf.page/index)))
                       nodes)))))
+
+(defn sketch->doc
+  "Sketch ZIP entries (kasane.zip/parse) → :kasane/doc. Each pages/*.json is an
+   artboard container. Geometry/layers need JSON parsing (deferred)."
+  [entries]
+  (let [names (set (map :name entries))
+        pages (filter #(re-find #"^pages/.*\.json$" (:name %)) entries)]
+    {:kasane/format :sketch
+     :kasane/canvas {:unit :px}
+     :kasane/nodes  (vec (map-indexed (fn [i p] {:node/id (str "AB" i) :node/kind :artboard
+                                                 :node/name (:name p)}) pages))
+     :kasane/meta   {:has-document (contains? names "document.json")
+                     :entries (count entries) :pages (count pages)}}))
+
+(defn ooxml->doc
+  "OOXML ZIP entries → :kasane/doc. Detects docx/xlsx/pptx by part prefix.
+   Document body XML parsing is deferred."
+  [entries]
+  (let [names (set (map :name entries))
+        pref? (fn [p] (some #(str/starts-with? % p) names))
+        fmt   (cond (pref? "word/") :docx (pref? "ppt/") :pptx (pref? "xl/") :xlsx :else :ooxml)]
+    {:kasane/format fmt
+     :kasane/canvas {:unit :pt}
+     :kasane/nodes  []
+     :kasane/meta   {:entries (count entries) :parts (vec (sort names))}}))
 
 (defn ->doc
   "Dispatch raw decode tree → :kasane/doc by detected format."

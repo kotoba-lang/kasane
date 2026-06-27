@@ -21,7 +21,10 @@
                         (recur (+ i 2) (into out (repeat cnt b))))))))))
 
 (defn decode
-  "Apply a named codec to unsigned-byte `data`."
+  "Apply a named codec to unsigned-byte `data`.
+   NOTE: :lzw (TIFF compression 5 / PDF LZWDecode / GIF) is deferred — the
+   bit-exact code-width-change timing needs validation against real-file
+   fixtures, which this environment can't generate. See ADR-2606272100."
   [codec data]
   (case codec
     :raw     (vec data)
@@ -29,4 +32,4 @@
     (:zip
      :flate
      :inflate) (inflate/inflate data)
-    (throw (ex-info "kasane.codec: unknown codec" {:codec codec}))))
+    (throw (ex-info "kasane.codec: unknown/deferred codec" {:codec codec}))))
