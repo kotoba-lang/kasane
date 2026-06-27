@@ -28,25 +28,29 @@
       (is (= content (entry-text entries "b.json"))))))
 
 (deftest sketch-normalize
-  (let [entries (zip/parse (make-zip [["document.json" "{}"]
-                                      ["meta.json" "{}"]
-                                      ["pages/A1B2.json" "{}"]
-                                      ["pages/C3D4.json" "{}"]]))
+  (let [page "{\"layers\":[{\"_class\":\"artboard\",\"name\":\"Home\",\"frame\":{\"x\":0,\"y\":0,\"width\":375,\"height\":812}},{\"_class\":\"artboard\",\"name\":\"Detail\",\"frame\":{\"x\":420,\"y\":0,\"width\":375,\"height\":812}}]}"
+        entries (zip/parse (make-zip [["document.json" "{\"pages\":[]}"]
+                                      ["pages/A1B2.json" page]]))
         doc     (norm/sketch->doc entries)]
     (is (= :sketch (:kasane/format doc)))
     (is (true? (get-in doc [:kasane/meta :has-document])))
-    (is (= 2 (get-in doc [:kasane/meta :pages])))
-    (is (= 2 (count (:kasane/nodes doc))))
-    (is (= :artboard (:node/kind (first (:kasane/nodes doc)))))))
+    (is (= 2 (get-in doc [:kasane/meta :artboards])))
+    (let [n (first (:kasane/nodes doc))]
+      (is (= :artboard (:node/kind n)))
+      (is (= "Home" (:node/name n)))
+      (is (= [0 0 375 812] (:node/bbox n))))))
 
 (deftest ooxml-normalize
-  (testing "docx detection"
-    (let [doc (norm/ooxml->doc (zip/parse (make-zip [["[Content_Types].xml" "<x/>"]
-                                                     ["word/document.xml" "<w/>"]
+  (testing "docx detection + w:t text extraction"
+    (let [docx "<?xml version=\"1.0\"?><w:document><w:body><w:p><w:r><w:t>Hello</w:t></w:r><w:r><w:t xml:space=\"preserve\"> world</w:t></w:r></w:p></w:body></w:document>"
+          doc (norm/ooxml->doc (zip/parse (make-zip [["[Content_Types].xml" "<x/>"]
+                                                     ["word/document.xml" docx]
                                                      ["_rels/.rels" "<r/>"]])))]
       (is (= :docx (:kasane/format doc)))
-      (is (= 3 (get-in doc [:kasane/meta :entries])))))
-  (testing "pptx detection"
-    (let [doc (norm/ooxml->doc (zip/parse (make-zip [["[Content_Types].xml" "<x/>"]
-                                                     ["ppt/presentation.xml" "<p/>"]])))]
-      (is (= :pptx (:kasane/format doc))))))
+      (is (= ["Hello" " world"] (mapv #(-> % :text/runs first :text) (:kasane/nodes doc))))))
+  (testing "pptx detection + a:t text extraction"
+    (let [slide "<p:sld><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>Slide title</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>"
+          doc (norm/ooxml->doc (zip/parse (make-zip [["[Content_Types].xml" "<x/>"]
+                                                     ["ppt/slides/slide1.xml" slide]])))]
+      (is (= :pptx (:kasane/format doc)))
+      (is (= ["Slide title"] (mapv #(-> % :text/runs first :text) (:kasane/nodes doc)))))))

@@ -2,7 +2,8 @@
   "Map a raw decoded format tree (kasane.decode output) onto the common
    :kasane/doc model — the cross-format layered tree from ADR-2606272100.
    Pure cljc."
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [kasane.json :as json]))
 
 (def ^:private psd-blend->kw
   {"norm" :normal "mul " :multiply "scrn" :screen "over" :overlay
@@ -124,30 +125,70 @@
                                   (dissoc :pdf.page/index)))
                       nodes)))))
 
+(defn- bytes->str [bs] (apply str (map char bs)))
+
+(defn- walk-artboards [node]
+  (cond
+    (map? node)    (concat (when (#{"artboard" "symbolMaster"} (:_class node)) [node])
+                           (mapcat walk-artboards (:layers node)))
+    (sequential? node) (mapcat walk-artboards node)
+    :else nil))
+
 (defn sketch->doc
-  "Sketch ZIP entries (kasane.zip/parse) → :kasane/doc. Each pages/*.json is an
-   artboard container. Geometry/layers need JSON parsing (deferred)."
+  "Sketch ZIP entries (kasane.zip/parse) → :kasane/doc. Parses pages/*.json
+   (kasane.json) and extracts artboards (name + frame → bbox)."
   [entries]
   (let [names (set (map :name entries))
-        pages (filter #(re-find #"^pages/.*\.json$" (:name %)) entries)]
+        pages (filter #(re-find #"^pages/.*\.json$" (:name %)) entries)
+        arts  (mapcat #(walk-artboards (json/parse (bytes->str (:bytes %)))) pages)]
     {:kasane/format :sketch
      :kasane/canvas {:unit :px}
-     :kasane/nodes  (vec (map-indexed (fn [i p] {:node/id (str "AB" i) :node/kind :artboard
-                                                 :node/name (:name p)}) pages))
+     :kasane/nodes  (vec (map-indexed
+                          (fn [i a] (let [f (:frame a)]
+                                      {:node/id   (str "AB" i)
+                                       :node/kind :artboard
+                                       :node/name (:name a)
+                                       :node/bbox [(:x f) (:y f) (:width f) (:height f)]}))
+                          arts))
      :kasane/meta   {:has-document (contains? names "document.json")
-                     :entries (count entries) :pages (count pages)}}))
+                     :entries (count entries) :pages (count pages) :artboards (count arts)}}))
+
+(defn- xml-texts
+  "Extract text between <tag …>…</tag> elements (namespace-prefixed local name,
+   e.g. \"w:t\"). Portable across clj/cljs ([\\s\\S] instead of dotall flag)."
+  [xml tag]
+  (mapv second (re-seq (re-pattern (str "<" tag "[^>]*>([\\s\\S]*?)</" tag ">")) xml)))
 
 (defn ooxml->doc
-  "OOXML ZIP entries → :kasane/doc. Detects docx/xlsx/pptx by part prefix.
-   Document body XML parsing is deferred."
+  "OOXML ZIP entries → :kasane/doc. Detects docx/xlsx/pptx by part prefix and
+   extracts shown text (Word w:t / PowerPoint a:t / Excel shared-strings t)."
   [entries]
   (let [names (set (map :name entries))
         pref? (fn [p] (some #(str/starts-with? % p) names))
-        fmt   (cond (pref? "word/") :docx (pref? "ppt/") :pptx (pref? "xl/") :xlsx :else :ooxml)]
+        fmt   (cond (pref? "word/") :docx (pref? "ppt/") :pptx (pref? "xl/") :xlsx :else :ooxml)
+        part  (fn [n] (some #(when (= (:name %) n) (bytes->str (:bytes %))) entries))
+        parts-re (fn [re] (filter #(re-find re (:name %)) entries))
+        texts (case fmt
+                :docx (xml-texts (or (part "word/document.xml") "") "w:t")
+                :pptx (vec (mapcat #(xml-texts (bytes->str (:bytes %)) "a:t")
+                                   (parts-re #"^ppt/slides/slide\d+\.xml$")))
+                :xlsx (xml-texts (or (part "xl/sharedStrings.xml") "") "t")
+                [])]
     {:kasane/format fmt
      :kasane/canvas {:unit :pt}
-     :kasane/nodes  []
-     :kasane/meta   {:entries (count entries) :parts (vec (sort names))}}))
+     :kasane/nodes  (vec (map-indexed (fn [i t] {:node/id (str "T" i) :node/kind :text
+                                                 :text/runs [{:text t}]}) texts))
+     :kasane/meta   {:entries (count entries) :text-runs (count texts)}}))
+
+(defn ttf->doc
+  "Parsed SFNT font (kasane.ttf/parse) → :kasane/doc. A font is modelled as a
+   metadata document (no canvas); one node per … nothing yet (glyphs deferred)."
+  [parsed]
+  {:kasane/format :ttf
+   :kasane/canvas {:unit :font-unit :units-per-em (:units-per-em parsed)}
+   :kasane/nodes  []
+   :kasane/meta   {:family (:family parsed) :glyphs (:num-glyphs parsed)
+                   :tables (:tables parsed) :sfnt-version (:sfnt-version parsed)}})
 
 (defn ->doc
   "Dispatch raw decode tree → :kasane/doc by detected format."
@@ -158,4 +199,5 @@
     :bmp  (bmp->doc raw)
     :tiff (tiff->doc raw)
     :gif  (gif->doc raw)
+    :ttf  (ttf->doc raw)
     (throw (ex-info "kasane.normalize: unsupported format (use pdf->doc/ai->doc directly)" {:format format}))))
