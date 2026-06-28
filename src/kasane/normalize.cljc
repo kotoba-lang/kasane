@@ -295,6 +295,47 @@
      :kasane/nodes  [(raster-node "raster" w h {:raster/blob {:cid nil :w w :h h :fmt :jpeg}})]
      :kasane/meta   {:components (:components parsed) :progressive? (:progressive? parsed)}}))
 
+(defn- strip-tags [s]
+  (-> (str s) (str/replace #"<[^>]*>" " ") (str/replace #"\s+" " ") str/trim))
+
+(defn epub->doc
+  "EPUB ZIP entries → :kasane/doc. Resolves META-INF/container.xml → OPF →
+   spine, extracts dc:title and the text of each spine XHTML (tags stripped)."
+  [entries]
+  (let [by   (into {} (map (juxt :name identity) entries))
+        gets (fn [n] (some-> (by n) :bytes bytes->str))
+        opf-path (second (re-find #"full-path=\"([^\"]+)\"" (or (gets "META-INF/container.xml") "")))
+        opf  (some-> opf-path gets)
+        dir  (if (and opf-path (str/includes? opf-path "/"))
+               (subs opf-path 0 (inc (str/last-index-of opf-path "/"))) "")
+        man  (into {} (map (fn [[_ id href]] [id (str dir href)])
+                           (re-seq #"<item\s+[^>]*id=\"([^\"]+)\"[^>]*href=\"([^\"]+)\"" (or opf ""))))
+        spine (mapv second (re-seq #"<itemref\s+[^>]*idref=\"([^\"]+)\"" (or opf "")))
+        docs  (keep #(gets (man %)) spine)]
+    {:kasane/format :epub
+     :kasane/canvas {:unit :em}
+     :kasane/nodes  (vec (map-indexed (fn [i d] {:node/id (str "C" i) :node/kind :page
+                                                 :text/runs [{:text (strip-tags d)}]}) docs))
+     :kasane/meta   {:title (first (xml-texts (or opf "") "dc:title"))
+                     :spine (count spine) :entries (count entries)}}))
+
+(defn odf->doc
+  "ODF ZIP entries (.odt/.ods/.odp) → :kasane/doc. Detects type from the
+   mimetype entry and extracts text:p paragraph text from content.xml."
+  [entries]
+  (let [by   (into {} (map (juxt :name identity) entries))
+        mime (some-> (by "mimetype") :bytes bytes->str)
+        fmt  (cond (and mime (str/includes? mime "spreadsheet"))  :ods
+                   (and mime (str/includes? mime "presentation")) :odp
+                   (and mime (str/includes? mime "text"))         :odt
+                   :else :odf)
+        texts (mapv strip-tags (xml-texts (or (some-> (by "content.xml") :bytes bytes->str) "") "text:p"))]
+    {:kasane/format fmt
+     :kasane/canvas {:unit :pt}
+     :kasane/nodes  (vec (map-indexed (fn [i t] {:node/id (str "T" i) :node/kind :text
+                                                 :text/runs [{:text t}]}) texts))
+     :kasane/meta   {:entries (count entries)}}))
+
 (defn ->doc
   "Dispatch raw decode tree → :kasane/doc by detected format."
   [format raw]

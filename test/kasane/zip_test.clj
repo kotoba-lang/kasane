@@ -62,6 +62,29 @@
                                                      ["_rels/.rels" "<r/>"]])))]
       (is (= :docx (:kasane/format doc)))
       (is (= ["Hello" " world"] (mapv #(-> % :text/runs first :text) (:kasane/nodes doc))))))
+  :placeholder-noop)
+
+(deftest epub-normalize
+  (let [container "<?xml version=\"1.0\"?><container><rootfiles><rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/></rootfiles></container>"
+        opf "<package><metadata><dc:title>Test Book</dc:title></metadata><manifest><item id=\"c1\" href=\"ch1.xhtml\" media-type=\"application/xhtml+xml\"/></manifest><spine><itemref idref=\"c1\"/></spine></package>"
+        xhtml "<html><body><h1>Chapter</h1><p>Hello epub world</p></body></html>"
+        doc (norm/epub->doc (zip/parse (make-zip [["mimetype" "application/epub+zip"]
+                                                  ["META-INF/container.xml" container]
+                                                  ["OEBPS/content.opf" opf]
+                                                  ["OEBPS/ch1.xhtml" xhtml]])))]
+    (is (= :epub (:kasane/format doc)))
+    (is (= "Test Book" (get-in doc [:kasane/meta :title])))
+    (is (= 1 (get-in doc [:kasane/meta :spine])))
+    (is (= "Chapter Hello epub world" (-> doc :kasane/nodes first :text/runs first :text)))))
+
+(deftest odf-normalize
+  (let [content "<office:document-content><office:body><office:text><text:p>Hello <text:span>odf</text:span></text:p><text:p>Line two</text:p></office:text></office:body></office:document-content>"
+        doc (norm/odf->doc (zip/parse (make-zip [["mimetype" "application/vnd.oasis.opendocument.text"]
+                                                 ["content.xml" content]])))]
+    (is (= :odt (:kasane/format doc)))
+    (is (= ["Hello odf" "Line two"] (mapv #(-> % :text/runs first :text) (:kasane/nodes doc))))))
+
+(deftest ooxml-extra
   (testing "pptx detection + shape geometry (EMU) + a:t text"
     (let [slide (str "<p:sld><p:cSld><p:spTree>"
                      "<p:sp><p:spPr><a:xfrm><a:off x=\"914400\" y=\"457200\"/>"
