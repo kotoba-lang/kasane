@@ -3,8 +3,12 @@
    :kasane/doc model — the cross-format layered tree from ADR-2606272100.
    Pure cljc."
   (:require [clojure.string :as str]
+            [clojure.edn :as edn]
             [kasane.json :as json]
             [kasane.svg :as svg]))
+
+(defn- hex2 [n] (let [d "0123456789abcdef" n (min 255 (max 0 (int n)))]
+                  (str (nth d (quot n 16)) (nth d (mod n 16)))))
 
 (def ^:private psd-blend->kw
   {"norm" :normal "mul " :multiply "scrn" :screen "over" :overlay
@@ -134,11 +138,28 @@
    "star" :vector "triangle" :vector "shapeGroup" :group
    "text" :text "bitmap" :raster "symbolInstance" :smart-object "slice" :group})
 
+(defn- sketch-fill
+  "First enabled solid fill → #rrggbb (Sketch stores rgb as 0-1 floats)."
+  [layer]
+  (when-let [c (some-> (filter #(not (false? (:isEnabled %))) (get-in layer [:style :fills]))
+                       first :color)]
+    (str "#" (hex2 (* 255 (:red c 0))) (hex2 (* 255 (:green c 0))) (hex2 (* 255 (:blue c 0))))))
+
+(defn- sketch-points
+  "shapePath control points: parse the \"{x, y}\" strings → [x y] (normalized)."
+  [layer]
+  (when (= (:_class layer) "shapePath")
+    (vec (keep (fn [p] (when-let [[_ x y] (re-find #"\{\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*\}" (str (:point p)))]
+                         [(edn/read-string x) (edn/read-string y)]))
+               (:points layer)))))
+
 (defn- sketch-node [layer]
-  (let [f (:frame layer)]
+  (let [f (:frame layer) fill (sketch-fill layer) pts (sketch-points layer)]
     (cond-> {:node/kind (get sketch-kind (:_class layer) :group)
              :node/name (:name layer)}
-      f                  (assoc :node/bbox [(:x f) (:y f) (:width f) (:height f)])
+      f                     (assoc :node/bbox [(:x f) (:y f) (:width f) (:height f)])
+      fill                  (assoc :node/fill fill)
+      (seq pts)             (assoc :vector/points pts)
       (seq (:layers layer)) (assoc :node/children (mapv sketch-node (:layers layer))))))
 
 (defn- walk-artboards [node]
@@ -171,12 +192,16 @@
   "Extract <p:sp> shapes from a slide XML: position/size (EMU) + text."
   [xml]
   (for [[_ sp] (re-seq #"<p:sp>([\s\S]*?)</p:sp>" xml)]
-    (let [off (re-find #"<a:off\s+x=\"(-?\d+)\"\s+y=\"(-?\d+)\"" sp)
-          ext (re-find #"<a:ext\s+cx=\"(\d+)\"\s+cy=\"(\d+)\"" sp)
-          txt (xml-texts sp "a:t")]
+    (let [off  (re-find #"<a:off\s+x=\"(-?\d+)\"\s+y=\"(-?\d+)\"" sp)
+          ext  (re-find #"<a:ext\s+cx=\"(\d+)\"\s+cy=\"(\d+)\"" sp)
+          fill (second (re-find #"<a:solidFill>\s*<a:srgbClr\s+val=\"([0-9A-Fa-f]{6})\"" sp))
+          geom (second (re-find #"<a:prstGeom\s+prst=\"([^\"]+)\"" sp))
+          txt  (xml-texts sp "a:t")]
       {:bbox (when (and off ext)
                (mapv #(#?(:clj Long/parseLong :cljs js/parseInt) %)
                      [(nth off 1) (nth off 2) (nth ext 1) (nth ext 2)]))
+       :fill (when fill (str "#" (str/lower-case fill)))
+       :geom (when geom (keyword geom))
        :text txt})))
 
 (defn ooxml->doc
@@ -197,6 +222,8 @@
          :kasane/nodes  (vec (map-indexed
                               (fn [i s] (cond-> {:node/id (str "SP" i) :node/kind :group}
                                           (:bbox s)        (assoc :node/bbox (:bbox s))
+                                          (:fill s)        (assoc :node/fill (:fill s))
+                                          (:geom s)        (assoc :svg/tag (:geom s))
                                           (seq (:text s))  (assoc :node/kind :text
                                                                   :text/runs (mapv (fn [t] {:text t}) (:text s)))))
                               shapes))

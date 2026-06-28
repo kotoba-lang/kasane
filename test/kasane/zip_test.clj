@@ -30,7 +30,10 @@
 (deftest sketch-normalize
   (let [page (str "{\"layers\":[{\"_class\":\"artboard\",\"name\":\"Home\","
                   "\"frame\":{\"x\":0,\"y\":0,\"width\":375,\"height\":812},"
-                  "\"layers\":[{\"_class\":\"rectangle\",\"name\":\"BG\",\"frame\":{\"x\":0,\"y\":0,\"width\":375,\"height\":100}},"
+                  "\"layers\":[{\"_class\":\"rectangle\",\"name\":\"BG\",\"frame\":{\"x\":0,\"y\":0,\"width\":375,\"height\":100},"
+                  "\"style\":{\"fills\":[{\"isEnabled\":true,\"color\":{\"red\":1,\"green\":0,\"blue\":0,\"alpha\":1}}]}},"
+                  "{\"_class\":\"shapePath\",\"name\":\"Tri\",\"frame\":{\"x\":0,\"y\":0,\"width\":10,\"height\":10},"
+                  "\"points\":[{\"point\":\"{0, 0}\"},{\"point\":\"{1, 0}\"},{\"point\":\"{0.5, 1}\"}]},"
                   "{\"_class\":\"text\",\"name\":\"Title\",\"frame\":{\"x\":16,\"y\":40,\"width\":200,\"height\":24}}]},"
                   "{\"_class\":\"artboard\",\"name\":\"Detail\",\"frame\":{\"x\":420,\"y\":0,\"width\":375,\"height\":812}}]}")
         entries (zip/parse (make-zip [["document.json" "{\"pages\":[]}"]
@@ -43,10 +46,13 @@
       (is (= :artboard (:node/kind home)))
       (is (= "Home" (:node/name home)))
       (is (= [0 0 375 812] (:node/bbox home)))
-      (testing "nested layer tree"
-        (is (= 2 (count (:node/children home))))
-        (is (= [:vector :text] (mapv :node/kind (:node/children home))))
-        (is (= [0 0 375 100] (:node/bbox (first (:node/children home)))))))))
+      (testing "nested layer tree + fill/points geometry"
+        (is (= 3 (count (:node/children home))))
+        (is (= [:vector :vector :text] (mapv :node/kind (:node/children home))))
+        (let [bg (first (:node/children home)) tri (second (:node/children home))]
+          (is (= [0 0 375 100] (:node/bbox bg)))
+          (is (= "#ff0000" (:node/fill bg)))                 ; red solid fill
+          (is (= [[0 0] [1 0] [0.5 1]] (:vector/points tri))))))))
 
 (deftest ooxml-normalize
   (testing "docx detection + w:t text extraction"
@@ -59,7 +65,8 @@
   (testing "pptx detection + shape geometry (EMU) + a:t text"
     (let [slide (str "<p:sld><p:cSld><p:spTree>"
                      "<p:sp><p:spPr><a:xfrm><a:off x=\"914400\" y=\"457200\"/>"
-                     "<a:ext cx=\"1828800\" cy=\"685800\"/></a:xfrm></p:spPr>"
+                     "<a:ext cx=\"1828800\" cy=\"685800\"/></a:xfrm>"
+                     "<a:prstGeom prst=\"ellipse\"/><a:solidFill><a:srgbClr val=\"00FF88\"/></a:solidFill></p:spPr>"
                      "<p:txBody><a:p><a:r><a:t>Slide title</a:t></a:r></a:p></p:txBody></p:sp>"
                      "</p:spTree></p:cSld></p:sld>")
           doc (norm/ooxml->doc (zip/parse (make-zip [["[Content_Types].xml" "<x/>"]
@@ -68,4 +75,6 @@
       (is (= 1 (get-in doc [:kasane/meta :shapes])))
       (let [n (first (:kasane/nodes doc))]
         (is (= [914400 457200 1828800 685800] (:node/bbox n)))
+        (is (= "#00ff88" (:node/fill n)))                    ; solid fill srgbClr
+        (is (= :ellipse (:svg/tag n)))                       ; preset geometry
         (is (= "Slide title" (-> n :text/runs first :text)))))))
