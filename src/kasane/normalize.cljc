@@ -279,6 +279,7 @@
     :tiff (tiff->doc raw)
     :gif  (gif->doc raw)
     :ttf  (ttf->doc raw)
+    :woff (assoc (ttf->doc raw) :kasane/format :woff)
     :gltf (gltf->doc raw)
     :svg  (svg->doc raw)
     (throw (ex-info "kasane.normalize: unsupported format (use pdf->doc/ai->doc directly)" {:format format}))))
