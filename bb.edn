@@ -1,17 +1,28 @@
 {:paths ["src" "test" "resources"]
+ ;; kasane.json/svg/gltf/ooxml->doc delegate to external kotoba-lang repos
+ ;; (2026-07-08) — bb needs the same git deps deps.edn declares so `bb test`
+ ;; stays runnable without a JVM/clojure CLI.
+ :deps {io.github.kotoba-lang/json            {:git/sha "1e77c42dd044610cfb3eb12e2831eec4b3fdb5a6"}
+        io.github.kotoba-lang/org-w3-svg      {:git/sha "516e6f45cae4a802a2f84766a71f62f91e5d1a98"}
+        io.github.kotoba-lang/org-khronos-glb {:git/sha "87c6cced3e75616c3b9b92e3e0f6c64f228e2887"}
+        io.github.kotoba-lang/ooxml           {:git/sha "0bc223380c1a582cfd7b7b829b0492d84d128fc4"}
+        io.github.kotoba-lang/office          {:git/sha "b5838def811d05f1db1e7d77e5daede8ac953883"}
+        io.github.kotoba-lang/org-pkware-zip  {:git/sha "35d7dfd37d59ed8b8e99964676aeb2375e0c46b3"}}
  :tasks
  {test
-  {:doc "Run the pure-cljc test suite (no external deps)."
+  {:doc "Run the pure-cljc test suite."
    :requires ([clojure.test :as t]
               [kasane.codec-test]
               [kasane.decode-test]
               [kasane.bmp-test]
               [kasane.json-test]
-              [kasane.vector-test])
+              [kasane.vector-test]
+              [kasane.ooxml-test])
    :task (let [{:keys [fail error]}
                (t/run-tests 'kasane.codec-test
                             'kasane.decode-test
                             'kasane.bmp-test
                             'kasane.json-test
-                            'kasane.vector-test)]
+                            'kasane.vector-test
+                            'kasane.ooxml-test)]
            (System/exit (if (pos? (+ fail error)) 1 0)))}}}

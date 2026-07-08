@@ -1,11 +1,28 @@
 (ns kasane.normalize
   "Map a raw decoded format tree (kasane.decode output) onto the common
    :kasane/doc model — the cross-format layered tree from ADR-2606272100.
-   Pure cljc."
+   Pure cljc.
+
+   ooxml->doc delegates format detection and multi-part (multi-slide)
+   discovery to kotoba-lang/ooxml (100% portable, no reader conditionals
+   at all) and Word text extraction to kotoba-lang/office's
+   office.graph/part-graph (portable — numeric-entity-aware, unlike this
+   ns's own xml-texts). Neither call ever touches office.opc/open-package,
+   the one JVM-only function in that repo (java.util.zip, guarded behind
+   #?(:clj ...) / throws on :cljs) — kasane keeps building its own
+   :office/entries map from org-pkware-zip-parsed bytes instead of calling
+   it. Excel text (sharedStrings.xml, not directly reachable via
+   ooxml.core's worksheet-only office-part-pattern) and PowerPoint shape
+   geometry (bbox/fill/preset geometry — no sibling repo has this yet)
+   stay kasane's own regex logic. See the kotoba-lang reverse-domain
+   media/graphics standards-substrate split (com-junkawasaki/root,
+   ADR-2607082500)."
   (:require [clojure.string :as str]
             [clojure.edn :as edn]
             [kasane.json :as json]
-            [kasane.svg :as svg]))
+            [kasane.svg :as svg]
+            [ooxml.core :as ooxml]
+            [office.graph :as office-graph]))
 
 (defn- hex2 [n] (let [d "0123456789abcdef" n (min 255 (max 0 (int n)))]
                   (str (nth d (quot n 16)) (nth d (mod n 16)))))
@@ -204,19 +221,30 @@
        :geom (when geom (keyword geom))
        :text txt})))
 
+(defn- word-doc-texts
+  "Word body text runs via office.graph/part-graph (portable, numeric-
+   HTML-entity-aware — office.opc/open-package is never called, only the
+   pure part-graph/text-node projection)."
+  [xml]
+  (->> (office-graph/part-graph {:office/path "word/document.xml" :office/xml (or xml "")})
+       :office/nodes
+       (keep :office/text)
+       vec))
+
 (defn ooxml->doc
-  "OOXML ZIP entries → :kasane/doc. Detects docx/xlsx/pptx and extracts text
-   (Word w:t / Excel shared-strings t) or shapes with geometry (PowerPoint:
-   <p:sp> a:off/a:ext in EMU + a:t text)."
+  "OOXML ZIP entries → :kasane/doc. Detects docx/xlsx/pptx via
+   kotoba-lang/ooxml (package-kind) and extracts text (Word w:t via
+   kotoba-lang/office's part-graph / Excel shared-strings t) or shapes
+   with geometry (PowerPoint: <p:sp> a:off/a:ext in EMU + a:t text,
+   slides discovered + numerically ordered via kotoba-lang/ooxml's
+   office-parts)."
   [entries]
-  (let [names (set (map :name entries))
-        pref? (fn [p] (some #(str/starts-with? % p) names))
-        fmt   (cond (pref? "word/") :docx (pref? "ppt/") :pptx (pref? "xl/") :xlsx :else :ooxml)
-        part  (fn [n] (some #(when (= (:name %) n) (bytes->str (:bytes %))) entries))
-        parts-re (fn [re] (filter #(re-find re (:name %)) entries))]
+  (let [text-map (into {} (map (fn [e] [(:name e) (bytes->str (:bytes e))])) entries)
+        fmt      (ooxml/package-kind text-map)
+        part     (fn [n] (get text-map n))]
     (if (= fmt :pptx)
-      (let [shapes (vec (mapcat #(pptx-shapes (bytes->str (:bytes %)))
-                                (parts-re #"^ppt/slides/slide\d+\.xml$")))]
+      (let [slide-xmls (mapv val (ooxml/office-parts text-map))       ; numerically slide-ordered
+            shapes (vec (mapcat pptx-shapes slide-xmls))]
         {:kasane/format :pptx
          :kasane/canvas {:unit :emu}
          :kasane/nodes  (vec (map-indexed
@@ -229,7 +257,7 @@
                               shapes))
          :kasane/meta   {:entries (count entries) :shapes (count shapes)}})
       (let [texts (case fmt
-                    :docx (xml-texts (or (part "word/document.xml") "") "w:t")
+                    :docx (word-doc-texts (part "word/document.xml"))
                     :xlsx (xml-texts (or (part "xl/sharedStrings.xml") "") "t")
                     [])]
         {:kasane/format fmt
