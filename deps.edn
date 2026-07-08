@@ -23,4 +23,8 @@
                         {:git/tag "v0.5.1" :git/sha "dfb30dd"}
                         io.github.kotoba-lang/org-pkware-zip
                         {:git/sha "35d7dfd37d59ed8b8e99964676aeb2375e0c46b3"}}
-          :main-opts   ["-m" "cognitect.test-runner"]}}}
+          :main-opts ["-m" "cognitect.test-runner"]}
+        ;; clj-kondo as a Clojars lib (no Homebrew/system install needed).
+        :lint {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2024.11.14"}}
+          :main-opts ["-m" "clj-kondo.main" "--lint" "src" "test"
+                      "--fail-level" "error"]}}}
