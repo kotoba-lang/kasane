@@ -12,15 +12,30 @@ SSoT: `90-docs/adr/2606272100-adobe-edn-kasane.md`（superproject 側）
 
 | ns | 役割 | WASM(kotoba-clj) |
 |---|---|---|
-| `kasane.bytes` | byte cursor + read primitive（u8/u16/u32/i*・endian・固定長） | ○ |
-| `kasane.decode` | **EDN 文法を解釈する純エンジン** `(decode grammar bytes)→EDN` | ○ |
-| `kasane.codec` | PackBits（PSD :rle channels 用） | ○ |
+| `kasane.bytes` | byte cursor + read primitive（u8/u16/u32/i*・endian・固定長） | 未検証* |
+| `kasane.decode` | **EDN 文法を解釈する純エンジン** `(decode grammar bytes)→EDN` | 未検証* |
+| `kasane.codec` | PackBits（PSD :rle channels 用） | 未検証* |
 | `kasane.normalize` | raw → 共通 `:kasane/doc` モデル（PSD/BMP/Sketch 用に加え、外部
-  フォーマットrepo の生 parse 出力からも呼べる純関数群 — 下記参照） | ○ |
+  フォーマットrepo の生 parse 出力からも呼べる純関数群 — 下記参照） | 未検証* |
 | `kasane.schema` | **malli = 共通モデルの SSoT**（検証/生成。WASM 経路外） | ✕ |
 | `kasane.gltf` / `kasane.svg` / `kasane.json` | glTF/SVG/JSON —
-  既存 reverse-domain 姉妹repoへの薄い adapter（2026-07-08 統合済み。詳細は下記） | ○ |
+  既存 reverse-domain 姉妹repoへの薄い adapter（2026-07-08 統合済み。詳細は下記） | 未検証* |
 | `resources/kasane/grammar/{psd,bmp}.edn` | kasane 自身の native フォーマット文法（データ） | data |
+
+**\* 2026-07-08 追記: 「○」表記は未検証の想定だったと判明、「未検証」に訂正した。**
+実際に `kotoba-lang/kotoba` の `kotoba wasm emit`（現行実装、Clojureベース
+`src/kotoba/{runtime,launcher,wasm_exec}.clj` — CLAUDE.md が言及する独立
+Rust repo `kotoba-clj` は存在せず、この Clojure 実装がそれに相当する）で
+`org-ietf-deflate`（このバッチで最も単純・移植性の高いnamespace）のコンパイルを
+試したところ、`kotoba.runtime/check` の内部で `ClassCastException`
+（`symbol-key`: `PersistentVector cannot be cast to Named`）が発生し
+クラッシュした。関数パラメータの map destructuring（`{:keys [...]}`）を
+除去しても別の場所で同じ例外が再発し、原因を完全に特定するには至っていない
+——「unsupported construct」という綺麗な診断ではなく生の内部例外である点も
+含め、コンパイラが実際にサポートするEDN-subsetは各READMEの想定より狭い
+可能性が高い。`kotoba-lang/kotoba` 側の対応は本batchのスコープ外（この
+kasane/utsushi分解バッチでは、コンパイラ自体を直さず「未検証」と正直に
+表記するだけに留める）。
 
 ## 2026-07 分解: 個別フォーマットのDSLを reverse-domain 名の別リポジトリへ抽出
 
@@ -151,4 +166,6 @@ readerのみ）。`clojure -M:test`では引き続き実行される。
 - **PSD**: ヘッダ・color-mode/image-resource blob・レイヤレコードまで。channel image data は
   layer-and-mask の length で skip。
 - raster ピクセル実体は EDN/git にインラインせず B2+DataLad の CID 参照（CLAUDE.md 規律）。
-- WASM 化は kotoba-clj の EDN-subset 成熟に追随（`decode` から段階適用）。
+- WASM 化は `kotoba wasm emit` の EDN-subset 成熟に追随する想定だったが、
+  2026-07-08 時点で実際に試すと内部クラッシュする（上記構成表の脚注参照）—
+  「段階適用」以前に現状は未達。
