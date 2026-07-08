@@ -8,7 +8,8 @@
 ;; ---- glTF / GLB ----------------------------------------------------------
 (defn- u32le [n] [(bit-and n 0xff) (bit-and (bit-shift-right n 8) 0xff)
                   (bit-and (bit-shift-right n 16) 0xff) (bit-and (bit-shift-right n 24) 0xff)])
-(defn- ascii [s] (mapv int s))
+(defn- char-code [c] #?(:clj (int c) :cljs (.charCodeAt c 0)))
+(defn- ascii [s] (mapv char-code s))
 
 (def gltf-json
   "{\"asset\":{\"version\":\"2.0\"},\"scenes\":[{\"nodes\":[0]}],\"nodes\":[{\"name\":\"Cube\",\"mesh\":0},{\"name\":\"Empty\"}],\"meshes\":[{\"name\":\"CubeMesh\"}]}")
