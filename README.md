@@ -72,10 +72,15 @@ kasane/utsushi分解バッチでは、コンパイラ自体を直さず「未検
   （write側）で、kasaneが必要とする「属性文字列→map」（read側）とは入力形状が
   違うため、衝突を避けて `svg.reader` という別nsに read側を追加した。
 - `kasane.gltf` → [`org-khronos-glb`](https://github.com/kotoba-lang/org-khronos-glb)
-  （`glb/parse-glb` + `glb.json/parse`）に委譲。調査の結果、org-khronos-glb/
-  org-khronos-gltf は既に**kasane.gltfより高機能なreader**（accessor decode
-  まで含む完全実装）を別セッションで先行実装済みだったと判明 — 「reader追加」
-  ではなく「単純に既存のより完成した実装へ委譲」で済んだ。
+  （`glb/parse-glb` + `glb.json/parse`）に委譲。org-khronos-glb は「reader追加」
+  を要さず既に kasane.gltf と同等のGLBチャンク読み取り+生JSONパースを持って
+  いたため委譲で済んだ。**訂正（2026-07-08 再調査）**: org-khronos-glb は
+  自身のREADMEで "no glTF-JSON schema knowledge (accessors, meshes,
+  materials, ...)" と明言しており、accessor/mesh decodeは実装していない
+  （前回記載の「accessor decodeまで含む完全実装」は誤り）。
+  `kasane.normalize/gltf->doc` 自体が node/mesh/scene の**個数**とtransform
+  だけを生JSONから読む薄い射影で、accessor decodeを元々必要としていないため
+  実害は無いが、READMEの表記を実態に合わせて訂正する。
 
 ## 2026-07-08 追記2: OOXML投影も JVM 依存を持ち込まずに統合完了
 
