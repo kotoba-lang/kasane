@@ -62,17 +62,35 @@ SSoT: `90-docs/adr/2606272100-adobe-edn-kasane.md`（superproject 側）
   まで含む完全実装）を別セッションで先行実装済みだったと判明 — 「reader追加」
   ではなく「単純に既存のより完成した実装へ委譲」で済んだ。
 
-**follow-up（未着手）**: OOXML投影（`kasane.normalize/ooxml->doc`）→既存
-`ooxml`/`office`/`office-style`/`drawingml` クラスタへの委譲。`office.opc/
-open-package` はJVM専用の`java.util.zip`直接依存（`#?(:cljs (throw ...))`）で
-書かれており、kasaneの「純cljc・ホスト依存ゼロ」原則と設計思想が食い違う
-（kasaneは`org-pkware-zip`で既にunzip済みのentriesを受け取る想定）。安全な
-統合には`office/graph.cljc`のデータモデルの理解と、zip読み込み層の扱いを
-別途詰める必要があり、このバッチでは見送った。
+## 2026-07-08 追記2: OOXML投影も JVM 依存を持ち込まずに統合完了
+
+`kasane.normalize/ooxml->doc` は [`kotoba-lang/ooxml`](https://github.com/kotoba-lang/ooxml)
+（format検出 `package-kind` + PowerPoint複数スライドの数値順ソート
+`office-parts` — 両方とも reader-conditional 無しの100%移植可能な純関数）と
+[`kotoba-lang/office`](https://github.com/kotoba-lang/office) の
+`office.graph/part-graph`（Word本文テキスト抽出。数値HTMLエンティティ
+`&#x...;`をkasane自前の旧実装より正しくデコードする、こちらも純関数）に
+委譲した。**`office.opc/open-package`/`package-bytes`（JVM専用、
+`java.util.zip`直接依存）は一度も呼ばない** — kasaneは引き続き
+`org-pkware-zip`で既にunzip済みのentriesを受け取り、`:office/entries`
+map を自前で組み立てる。同じ`office`リポジトリ内に JVM専用nsが同居していても、
+cljcのreader-conditionalのおかげで**実際に呼ぶ関数が移植可能なら依存側は
+汚染されない**（未使用の`#?(:clj ...)`分岐はcljs/wasmターゲットではただの
+コンパイル時分岐で、ランタイムに漏れない）。
+
+Excel テキスト（実データは`xl/sharedStrings.xml`にあり、`ooxml.core`の
+worksheet専用パターンからは直接届かない）と PowerPoint シェイプ geometry
+（bbox/fill/preset geometry — 他のどのrepoもまだ持っていない）は
+kasane自前のregexロジックのまま維持。
+
+副産物として、PowerPoint複数スライドの並び順が「zipエントリの物理順」から
+`ooxml.core`の数値ソート（`slide2` < `slide10`）に修正された（元実装は
+辞書順でズレる可能性があった）。
 
 kasane に残るのは: EDN文法エンジン本体、共通 `:kasane/doc` モデル（他repoの
 parse出力も受けられる純粋な射影関数として）、そして PSD/BMP/Sketch という
-kasane 自身の flagship native フォーマット。
+kasane 自身の flagship native フォーマット。これで最初のバッチADRで挙げた
+follow-up 4件（gltf/svg/json/ooxml）はすべて完了。
 
 ## 使い方
 
@@ -100,7 +118,7 @@ EDN 文法は宣言的データ:
 ## テスト
 
 ```bash
-bb test            # 純 cljc スイート（外部依存なし・速い）
+bb test            # 純 cljc スイート（bb.edn の :deps で外部git依存を解決）
 clojure -M:test    # JVM test-runner
 ```
 
