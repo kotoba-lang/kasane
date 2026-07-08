@@ -5,6 +5,8 @@
             [kasane.normalize :as norm]
             [kasane.testutil :as tu]))
 
+(defn- rd-bytes [path] (tu/slurp-bytes path))
+
 ;; ---- tiny big-endian byte builders (pure) -------------------------------
 (defn- u16 [n] [(bit-and (bit-shift-right n 8) 0xff) (bit-and n 0xff)])
 (defn- u32 [n] [(bit-and (bit-shift-right n 24) 0xff)
@@ -76,3 +78,29 @@
       (is (= :normal (:node/blend n)))
       (is (= [1 2 2 3] (:node/bbox n)))                ; [left top w h]
       (is (< 0.78 (:node/opacity n) 0.79)))))          ; 200/255
+
+(deftest psd-real-file
+  (testing "a real ImageMagick-written .psd (8x6 RGB8, one flat layer) —
+            kasane's flagship format had zero real-file coverage before
+            this test; ImageMagick (`magick -size 8x6 xc:red test.psd`)
+            was the fixture source"
+    (let [raw (d/decode psd-grammar (rd-bytes "kasane/fixtures/imagemagick.psd"))]
+      (is (= "8BPS" (:sig raw)))
+      (is (= 8 (:width raw)))
+      (is (= 6 (:height raw)))
+      (is (= 8 (:depth raw)))
+      (is (= :rgb (:mode raw)))
+      (is (= 3 (:chans raw)))
+      (let [layers (get-in raw [:limask :layers])]
+        (is (= 1 (count layers)))
+        (let [ly (first layers)]
+          (is (= [0 0 8 6] [(:left ly) (:top ly) (:right ly) (:bottom ly)]))
+          (is (= 3 (:nchan ly)))
+          (is (= "norm" (:blend ly)))
+          (is (= 255 (:opacity ly)))))
+      (testing "normalize"
+        (let [doc (norm/->doc :psd raw)]
+          (is (= :psd (:kasane/format doc)))
+          (is (= 8 (get-in doc [:kasane/canvas :width])))
+          (is (= 6 (get-in doc [:kasane/canvas :height])))
+          (is (= :normal (:node/blend (first (:kasane/nodes doc))))))))))
