@@ -18,8 +18,8 @@ SSoT: `90-docs/adr/2606272100-adobe-edn-kasane.md`（superproject 側）
 | `kasane.normalize` | raw → 共通 `:kasane/doc` モデル（PSD/BMP/Sketch 用に加え、外部
   フォーマットrepo の生 parse 出力からも呼べる純関数群 — 下記参照） | ○ |
 | `kasane.schema` | **malli = 共通モデルの SSoT**（検証/生成。WASM 経路外） | ✕ |
-| `kasane.gltf` / `kasane.svg` / `kasane.json` | glTF/SVG/JSON（reverse-domain 名の
-  姉妹repoへの統合が follow-up。詳細は下記） | ○ |
+| `kasane.gltf` / `kasane.svg` / `kasane.json` | glTF/SVG/JSON —
+  既存 reverse-domain 姉妹repoへの薄い adapter（2026-07-08 統合済み。詳細は下記） | ○ |
 | `resources/kasane/grammar/{psd,bmp}.edn` | kasane 自身の native フォーマット文法（データ） | data |
 
 ## 2026-07 分解: 個別フォーマットのDSLを reverse-domain 名の別リポジトリへ抽出
@@ -46,12 +46,29 @@ SSoT: `90-docs/adr/2606272100-adobe-edn-kasane.md`（superproject 側）
 | epub->doc | [`org-w3-epub`](https://github.com/kotoba-lang/org-w3-epub) |
 | odf->doc | [`org-oasis-odf`](https://github.com/kotoba-lang/org-oasis-odf) |
 
-**follow-up（未着手）**: `kasane.gltf`→`org-khronos-gltf`/`org-khronos-glb` への
-reader統合、`kasane.svg`→`org-w3-svg` への reader統合、`kasane.json`→既存
-`kotoba-lang/json` への切替、OOXML投影（`kasane.normalize/ooxml->doc`）→既存
-`ooxml`/`office`/`office-style`/`drawingml` クラスタへの委譲。いずれも既存repoが
-逆方向（書き専用）または重複実装を持っており、単純削除ではなく統合PRが必要なため
-このバッチでは未実施。
+## 2026-07-08 追記: gltf/svg/json は既存姉妹repoへの薄い adapter に統合済み
+
+- `kasane.json` → [`kotoba-lang/json`](https://github.com/kotoba-lang/json)
+  （`json.core/decode`）に委譲。既存repoは string-keyed map を返すため、
+  kasane側の元契約（keyword-keyed map、`kasane.gltf`/`sketch->doc` の
+  `(:_class layer)` 等が前提）を保つ keywordize wrapper を追加。
+- `kasane.svg` → [`org-w3-svg`](https://github.com/kotoba-lang/org-w3-svg)
+  （新設 `svg.reader` ns）に委譲。既存 `svg.core/attrs` は EDN要素→属性map
+  （write側）で、kasaneが必要とする「属性文字列→map」（read側）とは入力形状が
+  違うため、衝突を避けて `svg.reader` という別nsに read側を追加した。
+- `kasane.gltf` → [`org-khronos-glb`](https://github.com/kotoba-lang/org-khronos-glb)
+  （`glb/parse-glb` + `glb.json/parse`）に委譲。調査の結果、org-khronos-glb/
+  org-khronos-gltf は既に**kasane.gltfより高機能なreader**（accessor decode
+  まで含む完全実装）を別セッションで先行実装済みだったと判明 — 「reader追加」
+  ではなく「単純に既存のより完成した実装へ委譲」で済んだ。
+
+**follow-up（未着手）**: OOXML投影（`kasane.normalize/ooxml->doc`）→既存
+`ooxml`/`office`/`office-style`/`drawingml` クラスタへの委譲。`office.opc/
+open-package` はJVM専用の`java.util.zip`直接依存（`#?(:cljs (throw ...))`）で
+書かれており、kasaneの「純cljc・ホスト依存ゼロ」原則と設計思想が食い違う
+（kasaneは`org-pkware-zip`で既にunzip済みのentriesを受け取る想定）。安全な
+統合には`office/graph.cljc`のデータモデルの理解と、zip読み込み層の扱いを
+別途詰める必要があり、このバッチでは見送った。
 
 kasane に残るのは: EDN文法エンジン本体、共通 `:kasane/doc` モデル（他repoの
 parse出力も受けられる純粋な射影関数として）、そして PSD/BMP/Sketch という
