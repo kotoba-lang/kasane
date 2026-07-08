@@ -16,3 +16,12 @@
   [path]
   #?(:clj (slurp (io/resource path))
      :cljs (fs/readFileSync (str "resources/" path) "utf8")))
+
+(defn slurp-bytes
+  "Read a resources/-relative path as a vector of unsigned bytes (0-255) —
+   for real-file binary fixtures (PSD/PNG/etc.), as opposed to the text
+   grammar EDN slurp-resource handles."
+  [path]
+  #?(:clj (with-open [in (io/input-stream (io/resource path))]
+            (mapv #(bit-and (int %) 0xff) (.readAllBytes in)))
+     :cljs (vec (fs/readFileSync (str "resources/" path)))))
