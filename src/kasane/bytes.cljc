@@ -36,13 +36,23 @@
         bs (if big? bs (reverse bs))]
     (reduce (fn [acc b] (+ (* acc 256) b)) 0 bs)))
 
+(defn- pow2
+  "2^n via plain multiplication, not `bit-shift-left` — JS/cljs bitwise ops
+   work on 32-bit signed ints with a mod-32 shift amount (`1 << 32` is `1`,
+   not 4294967296, and `1 << 31` is negative), so `bit-shift-left` silently
+   corrupts sign extension for n=32 on non-JVM cljc targets. This stays
+   exact for n up to 53 (JS's safe-integer limit) — plenty for the i8/i16/
+   i32 callers below (there is no :i64 grammar field type)."
+  [n]
+  (loop [i 0 acc 1] (if (= i n) acc (recur (inc i) (* acc 2)))))
+
 (defn sint!
   "Read an `n`-byte two's-complement signed integer."
   [c n big?]
   (let [u    (uint! c n big?)
         bits (* 8 n)
-        half (bit-shift-left 1 (dec bits))]
-    (if (>= u half) (- u (bit-shift-left 1 bits)) u)))
+        half (pow2 (dec bits))]
+    (if (>= u half) (- u (pow2 bits)) u)))
 
 (defn bytes->ascii
   "Interpret a seq of unsigned bytes as an ASCII/Latin-1 string."

@@ -4,18 +4,18 @@
    reverse-domain-named repos)."
   (:require [clojure.test :refer [deftest is]]
             [clojure.edn :as edn]
-            #?(:clj [clojure.java.io :as io])
             [kasane.decode :as d]
-            [kasane.normalize :as norm]))
+            [kasane.normalize :as norm]
+            [kasane.testutil :as tu]))
 
-(defn- res [p] (edn/read-string #?(:clj (slurp (io/resource p)) :cljs (throw (ex-info "n/a" {})))))
-(def bmp-grammar (res "kasane/grammar/bmp.edn"))
+(def bmp-grammar (edn/read-string (tu/slurp-resource "kasane/grammar/bmp.edn")))
 
 ;; little-endian builders
 (defn- u16le [n] [(bit-and n 0xff) (bit-and (bit-shift-right n 8) 0xff)])
 (defn- u32le [n] [(bit-and n 0xff) (bit-and (bit-shift-right n 8) 0xff)
                   (bit-and (bit-shift-right n 16) 0xff) (bit-and (bit-shift-right n 24) 0xff)])
-(defn- ascii [s] (mapv int s))
+(defn- char-code [c] #?(:clj (int c) :cljs (.charCodeAt c 0)))
+(defn- ascii [s] (mapv char-code s))
 
 (deftest bmp-decode
   (let [bytes (vec (concat (ascii "BM") (u32le 70) (u32le 0) (u32le 54)   ; file hdr

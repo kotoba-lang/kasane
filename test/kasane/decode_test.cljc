@@ -3,7 +3,7 @@
             [clojure.edn :as edn]
             [kasane.decode :as d]
             [kasane.normalize :as norm]
-            #?(:clj [clojure.java.io :as io])))
+            [kasane.testutil :as tu]))
 
 ;; ---- tiny big-endian byte builders (pure) -------------------------------
 (defn- u16 [n] [(bit-and (bit-shift-right n 8) 0xff) (bit-and n 0xff)])
@@ -12,12 +12,11 @@
                 (bit-and (bit-shift-right n 8) 0xff)
                 (bit-and n 0xff)])
 (defn- i32 [n] (u32 (bit-and n 0xffffffff)))
-(defn- ascii [s] (mapv int s))
+(defn- char-code [c] #?(:clj (int c) :cljs (.charCodeAt c 0)))
+(defn- ascii [s] (mapv char-code s))
 
 (def psd-grammar
-  (edn/read-string
-   #?(:clj (slurp (io/resource "kasane/grammar/psd.edn"))
-      :cljs (throw (ex-info "load grammar via build" {})))))
+  (edn/read-string (tu/slurp-resource "kasane/grammar/psd.edn")))
 
 (defn- synthetic-psd
   "Build a minimal valid .psd: RGB 8-bit 4x3, one normal layer at (1,2)-(3,5)

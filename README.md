@@ -118,9 +118,33 @@ EDN 文法は宣言的データ:
 ## テスト
 
 ```bash
-bb test            # 純 cljc スイート（bb.edn の :deps で外部git依存を解決）
-clojure -M:test    # JVM test-runner
+clojure -M:test                                       # JVM test-runner（全6 ns、ooxml-testも含む）
+npx nbb -cp "$(clojure -A:test -Spath)" test/run.cljs  # nbb（cljs on Node、CLAUDE.mdのruntime優先順位で
+                                                        # JVM単体より上位）— 5 ns（ooxml-testを除く）
 ```
+
+**2026-07-08、babashka(`bb`)からnbbへ移行**（CLAUDE.mdの`.cljc`ランタイム優先順位
+`kotoba wasm > clojurewasm > cljs > nbb > jvm`に揃える）。移行の過程で
+`kasane.bytes/sint!`の実バグを発見・修正した: `bit-shift-left`はJVMではLong
+（64bit）で安全だが、cljs/JSでは32bit符号付き整数+shift量mod32という別物の
+セマンティクスになり（`1 << 32` は `1`、`1 << 31` は負数）、32bit符号拡張の
+閾値計算が静かに壊れていた（**JVM上のテストは全部greenのまま気付かれなかった
+— cljc設計が謳う「同じコードがJVM/cljs/kotoba-wasmで動く」を実際にcljs上で
+検証していなかったことの実例**）。乗算ベースの`pow2`ヘルパーに置き換えて修正
+（`src/kasane/bytes.cljc`参照）。同様の理由でtestヘルパーの`(mapv int s)`
+（文字→コードポイント、JVMのCharacterでしか動かない）も
+`#?(:clj (int c) :cljs (.charCodeAt c 0))`という既存の移植可能パターン
+（`kasane.cos`由来、org-iso-pdfに継承済み）に統一した。
+
+**既知の制限**: `kasane.json`が委譲している`kotoba-lang/json`の`\u`unicode
+エスケープ処理に同種のバグ（`(int ch)`をcljsの文字に対して誤用）を発見した
+（`kasane.json-test`の`structures`テストがnbb実行時のみ1件fail）。別repoの
+問題のためこのバッチでは未修正 — 上流での修正が必要。
+
+`kasane.ooxml-test`は`.clj`（`.cljc`でない）ため nbb では実行されない —
+fixture生成に`java.util.zip.ZipOutputStream`（JVM専用）を使っており、この
+依存グラフには移植可能なzip **writer**がまだ存在しない（`org-pkware-zip`は
+readerのみ）。`clojure -M:test`では引き続き実行される。
 
 ## R0 スコープ / 既知の限界（ADR-2606272100）
 
