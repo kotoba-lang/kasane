@@ -22,7 +22,7 @@
           :extra-deps  {io.github.cognitect-labs/test-runner
                         {:git/tag "v0.5.1" :git/sha "dfb30dd"}
                         io.github.kotoba-lang/org-pkware-zip
-                        {:git/sha "35d7dfd37d59ed8b8e99964676aeb2375e0c46b3"}}
+                        {:git/sha "fe8ec8c36ab9c19c615caed2303bae251a8ca0b7"}}
           :main-opts ["-m" "cognitect.test-runner"]}
         ;; clj-kondo as a Clojars lib (no Homebrew/system install needed).
         :lint {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2024.11.14"}}
