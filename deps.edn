@@ -1,4 +1,9 @@
-{:paths ["src" "resources"]
+{:path
+        ;; kotoba.lang.text, not clojure.string. Pinned as an explicit floor:
+        ;; tools.deps takes the NEWEST sha it is shown, so without a floor here
+        ;; this repo silently rides whatever a sibling happens to name.
+        io.github.kotoba-lang/text {:git/sha "73bdb13ae7a3d004b44bca08be03a3191157a38f"}
+       s ["src" "resources"]
  ;; kasane.json/kasane.svg/kasane.gltf は既存 kotoba-lang repo への薄い
  ;; adapter（2026-07-08、独自実装は廃止）。org-khronos-glb は kasane.gltf より
  ;; 高機能なGLB reader/writerを既に独立に持っていた（accessor decode含む）。

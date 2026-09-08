@@ -17,7 +17,7 @@
    stay kasane's own regex logic. See the kotoba-lang reverse-domain
    media/graphics standards-substrate split (com-junkawasaki/root,
    ADR-2607082500)."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [clojure.edn :as edn]
             [kasane.json :as json]
             [kasane.svg :as svg]
@@ -217,7 +217,7 @@
       {:bbox (when (and off ext)
                (mapv #(#?(:clj Long/parseLong :cljs js/parseInt) %)
                      [(nth off 1) (nth off 2) (nth ext 1) (nth ext 2)]))
-       :fill (when fill (str "#" (str/lower-case fill)))
+       :fill (when fill (str "#" (str/lower fill)))
        :geom (when geom (keyword geom))
        :text txt})))
 
