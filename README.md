@@ -138,8 +138,8 @@ EDN 文法は宣言的データ:
 ## テスト
 
 ```bash
-clojure -M:test                                       # JVM test-runner（全6 ns、ooxml-testも含む）
-npx nbb -cp "$(clojure -A:test -Spath)" test/run.cljk  # nbb（cljs on Node、CLAUDE.mdのruntime優先順位で
+kbb -M:test                                       # JVM test-runner（全6 ns、ooxml-testも含む）
+kbb --backend sci -cp "$(kbb -A:test -Spath)" test/run.cljk  # nbb（cljs on Node、CLAUDE.mdのruntime優先順位で
                                                         # JVM単体より上位）— 5 ns（ooxml-testを除く）
 ```
 
@@ -164,7 +164,7 @@ npx nbb -cp "$(clojure -A:test -Spath)" test/run.cljk  # nbb（cljs on Node、CL
 `kasane.ooxml-test`は`.clj`（`.cljc`でない）ため nbb では実行されない —
 fixture生成に`java.util.zip.ZipOutputStream`（JVM専用）を使っており、この
 依存グラフには移植可能なzip **writer**がまだ存在しない（`org-pkware-zip`は
-readerのみ）。`clojure -M:test`では引き続き実行される。
+readerのみ）。`kbb -M:test`では引き続き実行される。
 
 ## R0 スコープ / 既知の限界（ADR-2606272100）
 
