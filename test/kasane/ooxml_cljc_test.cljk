@@ -12,7 +12,7 @@
    :test dep) instead of generated at test time. That sidesteps the
    \"no portable zip writer\" limitation entirely -- this is the first time
    kasane's OOXML integration has ever run under the actual nbb/cljs
-   runtime (test/run.cljs previously excluded ooxml coverage altogether)."
+   runtime (test/run.cljk previously excluded ooxml coverage altogether)."
   (:require [clojure.test :refer [deftest is testing]]
             [kasane.testutil :as tu]
             [kasane.normalize :as norm]

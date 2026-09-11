@@ -1,5 +1,5 @@
 ;; nbb entry point for kasane's portable (.cljc) test suite.
-;; Run from the repo root: nbb -cp "$(clojure -A:test -Spath)" test/run.cljs
+;; Run from the repo root: nbb -cp "$(clojure -A:test -Spath)" test/run.cljk
 ;;
 ;; kasane.ooxml-test (.clj, not .cljc) is still excluded — its fixture-
 ;; generation helper uses java.util.zip.ZipOutputStream to build synthetic

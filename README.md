@@ -139,7 +139,7 @@ EDN 文法は宣言的データ:
 
 ```bash
 clojure -M:test                                       # JVM test-runner（全6 ns、ooxml-testも含む）
-npx nbb -cp "$(clojure -A:test -Spath)" test/run.cljs  # nbb（cljs on Node、CLAUDE.mdのruntime優先順位で
+npx nbb -cp "$(clojure -A:test -Spath)" test/run.cljk  # nbb（cljs on Node、CLAUDE.mdのruntime優先順位で
                                                         # JVM単体より上位）— 5 ns（ooxml-testを除く）
 ```
 
@@ -151,7 +151,7 @@ npx nbb -cp "$(clojure -A:test -Spath)" test/run.cljs  # nbb（cljs on Node、CL
 閾値計算が静かに壊れていた（**JVM上のテストは全部greenのまま気付かれなかった
 — cljc設計が謳う「同じコードがJVM/cljs/kotoba-wasmで動く」を実際にcljs上で
 検証していなかったことの実例**）。乗算ベースの`pow2`ヘルパーに置き換えて修正
-（`src/kasane/bytes.cljc`参照）。同様の理由でtestヘルパーの`(mapv int s)`
+（`src/kasane/bytes.cljk`参照）。同様の理由でtestヘルパーの`(mapv int s)`
 （文字→コードポイント、JVMのCharacterでしか動かない）も
 `#?(:clj (int c) :cljs (.charCodeAt c 0))`という既存の移植可能パターン
 （`kasane.cos`由来、org-iso-pdfに継承済み）に統一した。
