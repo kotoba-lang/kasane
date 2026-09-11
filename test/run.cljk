@@ -1,10 +1,10 @@
 ;; nbb entry point for kasane's portable (.cljc) test suite.
-;; Run from the repo root: nbb -cp "$(clojure -A:test -Spath)" test/run.cljk
+;; Run from the repo root: kbb --backend sci -cp "$(kbb -A:test -Spath)" test/run.cljk
 ;;
 ;; kasane.ooxml-test (.clj, not .cljc) is still excluded — its fixture-
 ;; generation helper uses java.util.zip.ZipOutputStream to build synthetic
 ;; zip archives at test time, and no portable (JVM-free) zip *writer*
-;; exists anywhere in this dependency graph. `clojure -M:test` still runs
+;; exists anywhere in this dependency graph. `kbb -M:test` still runs
 ;; it. kasane.ooxml-cljc-test sidesteps this: it reads pre-built real
 ;; fixture *files* (committed bytes) via org-pkware-zip's zip.core/parse,
 ;; a portable *reader* -- this is the first OOXML coverage that runs here.

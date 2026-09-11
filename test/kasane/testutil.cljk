@@ -5,7 +5,7 @@
    order, nbb ranks above plain JVM) has no classpath/resource-loader
    concept, so it reads resources/-relative paths directly via node:fs.
    This means nbb-run tests must be invoked with the kasane repo root as
-   cwd (both `clojure -M:test` and the nbb invocation documented in
+   cwd (both `kbb -M:test` and the nbb invocation documented in
    README.md already assume this)."
   (:require #?(:clj [clojure.java.io :as io])
             #?(:cljs ["node:fs" :as fs])))
