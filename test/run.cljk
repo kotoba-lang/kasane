@@ -8,7 +8,7 @@
 ;; it. kasane.ooxml-cljc-test sidesteps this: it reads pre-built real
 ;; fixture *files* (committed bytes) via org-pkware-zip's zip.core/parse,
 ;; a portable *reader* -- this is the first OOXML coverage that runs here.
-(require '[clojure.test :as t]
+(require '[kotoba.test :as t]
          '[kasane.codec-test]
          '[kasane.decode-test]
          '[kasane.bmp-test]

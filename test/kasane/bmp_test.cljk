@@ -2,7 +2,7 @@
   "BMP structural decode + normalize (kasane's native format, not
    extracted — see README for the formats that moved to their own
    reverse-domain-named repos)."
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [clojure.edn :as edn]
             [kasane.decode :as d]
             [kasane.normalize :as norm]

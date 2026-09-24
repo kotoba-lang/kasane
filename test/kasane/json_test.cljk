@@ -1,5 +1,5 @@
 (ns kasane.json-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [kasane.json :as json]))
 
 (deftest scalars
