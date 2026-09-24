@@ -6,7 +6,7 @@
    the ooxml.core/office.graph delegation (format detection, numeric slide
    ordering, Word text extraction) still produces the same shapes kasane's
    own hand-rolled logic did."
-  (:require [kotoba.test :refer [deftest is testing]]
+  (:require [kotoba.bytes :as kbytes] [kotoba.test :refer [deftest is testing]]
             [zip.core :as zip]
             [kasane.normalize :as norm]))
 
@@ -15,7 +15,7 @@
         zos (java.util.zip.ZipOutputStream. out)]
     (doseq [[n c] entries]
       (.putNextEntry zos (java.util.zip.ZipEntry. ^String n))
-      (.write zos (.getBytes ^String c "UTF-8"))
+      (.write zos (kbytes/utf8-bytes ^String c))
       (.closeEntry zos))
     (.close zos)
     (mapv #(bit-and (int %) 0xff) (.toByteArray out))))
