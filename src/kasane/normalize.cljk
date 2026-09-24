@@ -18,7 +18,7 @@
    media/graphics standards-substrate split (com-junkawasaki/root,
    ADR-2607082500)."
   (:require [kotoba.lang.text :as str]
-            [clojure.edn :as edn]
+            [kotoba.lang.edn :as edn]
             [kasane.json :as json]
             [kasane.svg :as svg]
             [ooxml.core :as ooxml]

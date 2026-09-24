@@ -3,7 +3,7 @@
    extracted — see README for the formats that moved to their own
    reverse-domain-named repos)."
   (:require [kotoba.test :refer [deftest is]]
-            [clojure.edn :as edn]
+            [kotoba.lang.edn :as edn]
             [kasane.decode :as d]
             [kasane.normalize :as norm]
             [kasane.testutil :as tu]))
