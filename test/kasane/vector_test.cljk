@@ -1,6 +1,6 @@
 (ns kasane.vector-test
   "glTF/GLB + SVG decode."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [kasane.gltf :as gltf]
             [kasane.svg :as svg]
             [kasane.normalize :as norm]))

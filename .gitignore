@@ -4,3 +4,4 @@ target/
 .clj-kondo/.cache/
 *.class
 .DS_Store
+.nbb/

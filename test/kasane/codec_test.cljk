@@ -1,5 +1,5 @@
 (ns kasane.codec-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [kasane.codec :as codec]))
 
 (deftest packbits-canonical

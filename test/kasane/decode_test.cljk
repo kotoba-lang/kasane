@@ -1,5 +1,5 @@
 (ns kasane.decode-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [clojure.edn :as edn]
             [kasane.decode :as d]
             [kasane.normalize :as norm]

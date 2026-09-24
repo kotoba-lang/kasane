@@ -6,7 +6,7 @@
    the ooxml.core/office.graph delegation (format detection, numeric slide
    ordering, Word text extraction) still produces the same shapes kasane's
    own hand-rolled logic did."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [zip.core :as zip]
             [kasane.normalize :as norm]))
 
