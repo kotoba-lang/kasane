@@ -83,7 +83,7 @@
 (defn png->doc
   "Parsed PNG (kasane.png/parse output) → :kasane/doc. A single :raster node;
    pixels are NOT inlined — :raster/blob is a pointer (cid filled when the
-   sample buffer is offloaded to B2/DataLad, per CLAUDE.md / ADR-2606272100)."
+   sample buffer is offloaded to B2/DataLad, per AGENTS.md / ADR-2606272100)."
   [parsed]
   (let [{:keys [width height color-type bit-depth]} (:ihdr parsed)]
     {:kasane/format :png

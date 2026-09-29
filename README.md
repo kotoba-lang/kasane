@@ -24,7 +24,7 @@ SSoT: `90-docs/adr/2606272100-adobe-edn-kasane.md`（superproject 側）
 
 **\* 2026-07-08 追記: 「○」表記は未検証の想定だったと判明、「未検証」に訂正した。**
 実際に `kotoba-lang/kotoba` の `kotoba wasm emit`（現行実装、Clojureベース
-`src/kotoba/{runtime,launcher,wasm_exec}.clj` — CLAUDE.md が言及する独立
+`src/kotoba/{runtime,launcher,wasm_exec}.clj` — AGENTS.md が言及する独立
 Rust repo `kotoba-clj` は存在せず、この Clojure 実装がそれに相当する）で
 `org-ietf-deflate`（このバッチで最も単純・移植性の高いnamespace）のコンパイルを
 試したところ、`kotoba.runtime/check` の内部で `ClassCastException`
@@ -139,11 +139,11 @@ EDN 文法は宣言的データ:
 
 ```bash
 kbb -M:test                                       # JVM test-runner（全6 ns、ooxml-testも含む）
-kbb --backend sci -cp "$(kbb -A:test -Spath)" test/run.cljk  # nbb（cljs on Node、CLAUDE.mdのruntime優先順位で
+kbb --backend sci -cp "$(kbb -A:test -Spath)" test/run.cljk  # nbb（cljs on Node、AGENTS.mdのruntime優先順位で
                                                         # JVM単体より上位）— 5 ns（ooxml-testを除く）
 ```
 
-**2026-07-08、babashka(`bb`)からnbbへ移行**（CLAUDE.mdの`.cljc`ランタイム優先順位
+**2026-07-08、babashka(`bb`)からnbbへ移行**（AGENTS.mdの`.cljc`ランタイム優先順位
 `kotoba wasm > clojurewasm > cljs > nbb > jvm`に揃える）。移行の過程で
 `kasane.bytes/sint!`の実バグを発見・修正した: `bit-shift-left`はJVMではLong
 （64bit）で安全だが、cljs/JSでは32bit符号付き整数+shift量mod32という別物の
@@ -170,7 +170,7 @@ readerのみ）。`kbb -M:test`では引き続き実行される。
 
 - **PSD**: ヘッダ・color-mode/image-resource blob・レイヤレコードまで。channel image data は
   layer-and-mask の length で skip。
-- raster ピクセル実体は EDN/git にインラインせず B2+DataLad の CID 参照（CLAUDE.md 規律）。
+- raster ピクセル実体は EDN/git にインラインせず B2+DataLad の CID 参照（AGENTS.md 規律）。
 - WASM 化は `kotoba wasm emit` の EDN-subset 成熟に追随する想定だったが、
   2026-07-08 時点で実際に試すと内部クラッシュする（上記構成表の脚注参照）—
   「段階適用」以前に現状は未達。
