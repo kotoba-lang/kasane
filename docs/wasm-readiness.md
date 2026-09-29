@@ -5,7 +5,7 @@ ADR-2606272100 は「`kasane.decode`/`inflate` 等を kotoba-clj で WASM Compon
 
 ## kotoba-clj の EDN-subset（受理範囲）
 
-kotoba CLAUDE.md より、現状サポートされるのはおおむね:
+kotoba AGENTS.md より、現状サポートされるのはおおむね:
 
 - `def`/`defn`/`ns`、`if`/`when`/`let`/`do`、`+ - * / mod`、`= < > <= >=`、`and or not`
 - 文字列リテラル + `str-len`/`byte-at`（文字列 = packed handle）
